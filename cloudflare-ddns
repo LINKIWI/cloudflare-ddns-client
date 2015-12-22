@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import os
 import json
 import requests
@@ -144,6 +145,9 @@ def main():
         external_ip = get_external_ip()
         for domain in config['domains']:
             update_dns(domain, auth, external_ip)
+    else:
+        print 'No arguments passed; exiting.'
+        print 'Try cloudflare-ddns --help.'
 
 
 if __name__ == '__main__':
