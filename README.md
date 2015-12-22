@@ -8,6 +8,7 @@ Installation is fairly straightforward. Note that you should install the script 
 ```bash
 git clone https://github.com/LINKIWI/cloudflare-ddns-client.git
 cd cloudflare-ddns-client
+sudo chmod +x cloudflare-ddns
 sudo make install
 ```
 This will install necessary Python libraries and place a copy of the `cloudflare-ddns` executable in `/usr/local/bin`. You can verify access to the executable with `which cloudflare-ddns`.
@@ -49,5 +50,5 @@ crontab -e
 ```
 Then add the entry
 ```
-0 0 * * * cloudflare-ddns --update-now
+0 0 * * * /usr/local/bin/cloudflare-ddns --update-now > /dev/null 2>&1
 ```
