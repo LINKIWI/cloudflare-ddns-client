@@ -94,6 +94,9 @@ def update_dns(domain, auth, ip_address):
     """
     # Find the zone ID corresponding to the domain
     zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth)
+    if zone_resp.status_code != 200:
+        print 'Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure'
+        return
     zone_names_to_ids = {zone['name']: zone['id'] for zone in zone_resp.json()['result']}
     if domain not in zone_names_to_ids:
         print 'The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'.format(domain=domain, domain_list=map(str, zone_names_to_ids.keys()))
