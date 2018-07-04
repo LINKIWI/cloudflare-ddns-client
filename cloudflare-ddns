@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 import os
 import json
 import requests
 import argparse
-
+from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
@@ -84,7 +84,7 @@ def get_external_ip():
     return requests.get(EXTERNAL_IP_QUERY_API).json()['ip']
 
 
-def update_dns(domain, auth, ip_address):
+def update_dns(subdomain, auth, ip_address):
     """
     Updates the specified domain with the given IP address, given authentication parameters.
 
@@ -93,6 +93,8 @@ def update_dns(domain, auth, ip_address):
     :param ip_address: IP address with which to update the A record
     :return: None
     """
+    # Extract the domain
+    domain = get_fld(subdomain, fix_protocol=True)
     # Find the zone ID corresponding to the domain
     zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth)
     if zone_resp.status_code != 200:
@@ -105,9 +107,9 @@ def update_dns(domain, auth, ip_address):
     zone_id = zone_names_to_ids[domain]
 
     # Find the A DNS record ID for this zone
-    dns_records = requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'type': 'A'}).json()['result']
+    dns_records = requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'type': 'A', 'name': subdomain}).json()['result']
     if not dns_records:
-        print 'We couldn\'t find an A record for the domain {domain}. Are you sure you\'ve created one?'.format(domain=domain)
+        print 'We couldn\'t find an A record for the (sub)domain {subdomain}. Are you sure you\'ve created one?'.format(subdomain=subdomain)
         return
     dns_record_id = dns_records[0]['id']
     existing_ip_address = dns_records[0]['content']
@@ -115,7 +117,7 @@ def update_dns(domain, auth, ip_address):
     # Update the record as necessary
     new_dns_record = dict(dns_records[0])
     new_dns_record['content'] = ip_address
-    print 'Updating the A record (ID {dns_record_id}) of domain {domain} (ID {zone_id}) to {ip_address}.'.format(dns_record_id=dns_record_id, zone_id=zone_id, domain=domain, ip_address=ip_address)
+    print 'Updating the A record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(dns_record_id=dns_record_id, zone_id=zone_id, subdomain=subdomain, ip_address=ip_address)
     if existing_ip_address == ip_address:
         print 'DNS record is already up-to-date; taking no action'
     else:
