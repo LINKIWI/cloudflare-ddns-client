@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 import os
 import json
 import requests
@@ -47,10 +47,10 @@ def load_configuration():
         if all([key in config for key in ['domains', 'email', 'api_key']]):
             return config
         else:
-            print 'Configuration file {config_file} is missing at least one of the following config parameters: domains, email, or api_key'.format(config_file=CONFIGURATION_FILE)
+            print('Configuration file {config_file} is missing at least one of the following config parameters: domains, email, or api_key'.format(config_file=CONFIGURATION_FILE))
             return {}
     except IOError:
-        print 'Configuration file {config_file} not found! Did you run cloudflare-ddns --configure?'.format(config_file=CONFIGURATION_FILE)
+        print('Configuration file {config_file} not found! Did you run cloudflare-ddns --configure?'.format(config_file=CONFIGURATION_FILE))
         return {}
 
 
@@ -60,17 +60,17 @@ def initialize_configuration():
 
     :return: None, but writes the data to CONFIGURATION_FILE
     """
-    print '=============Configuring CloudFlare automatic DDNS update client============='
-    print 'You may rerun this at any time with cloudflare-ddns --configure'
-    print 'Quit and cancel at any time with Ctrl-C'
-    print ''
-    email = raw_input('Enter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
-    print ''
-    api_key = raw_input('Enter the API key associated with your CloudFlare account. You can find your API key at https://www.cloudflare.com/a/account/my-account\nExample: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
-    print ''
-    domains = raw_input('Enter the domains for which you would like to automatically update the DNS records, delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\nComma-delimited domains: ')
-    print ''
-    print 'Configuration file written to {config_file} successfully.'.format(config_file=CONFIGURATION_FILE)
+    print('=============Configuring CloudFlare automatic DDNS update client=============')
+    print('You may rerun this at any time with cloudflare-ddns --configure')
+    print('Quit and cancel at any time with Ctrl-C')
+    print('')
+    email = input('Enter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
+    print('')
+    api_key = input('Enter the API key associated with your CloudFlare account. You can find your API key at https://www.cloudflare.com/a/account/my-account\nExample: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
+    print('')
+    domains = input('Enter the domains for which you would like to automatically update the DNS records, delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\nComma-delimited domains: ')
+    print('')
+    print('Configuration file written to {config_file} successfully.'.format(config_file=CONFIGURATION_FILE))
     with open(CONFIGURATION_FILE, 'w') as config_file:
         config_file.write('email={email}\napi_key={api_key}\ndomains={domains}\n'.format(email=email, api_key=api_key, domains=domains))
 
@@ -98,18 +98,18 @@ def update_dns(subdomain, auth, ip_address):
     # Find the zone ID corresponding to the domain
     zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth)
     if zone_resp.status_code != 200:
-        print 'Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure'
+        print('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
         return
     zone_names_to_ids = {zone['name']: zone['id'] for zone in zone_resp.json()['result']}
     if domain not in zone_names_to_ids:
-        print 'The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'.format(domain=domain, domain_list=map(str, zone_names_to_ids.keys()))
+        print('The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'.format(domain=domain, domain_list=map(str, zone_names_to_ids.keys())))
         return
     zone_id = zone_names_to_ids[domain]
 
     # Find the A DNS record ID for this zone
     dns_records = requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'type': 'A', 'name': subdomain}).json()['result']
     if not dns_records:
-        print 'We couldn\'t find an A record for the (sub)domain {subdomain}. Are you sure you\'ve created one?'.format(subdomain=subdomain)
+        print('We couldn\'t find an A record for the (sub)domain {subdomain}. Are you sure you\'ve created one?'.format(subdomain=subdomain))
         return
     dns_record_id = dns_records[0]['id']
     existing_ip_address = dns_records[0]['content']
@@ -117,9 +117,9 @@ def update_dns(subdomain, auth, ip_address):
     # Update the record as necessary
     new_dns_record = dict(dns_records[0])
     new_dns_record['content'] = ip_address
-    print 'Updating the A record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(dns_record_id=dns_record_id, zone_id=zone_id, subdomain=subdomain, ip_address=ip_address)
+    print('Updating the A record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(dns_record_id=dns_record_id, zone_id=zone_id, subdomain=subdomain, ip_address=ip_address))
     if existing_ip_address == ip_address:
-        print 'DNS record is already up-to-date; taking no action'
+        print('DNS record is already up-to-date; taking no action')
     else:
         update_resp = requests.put(
             CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API.format(zone_id=zone_id, dns_record_id=dns_record_id),
@@ -127,9 +127,9 @@ def update_dns(subdomain, auth, ip_address):
             data=json.dumps(new_dns_record),
         )
         if update_resp.json()['success']:
-            print 'DNS record updated successfully!'
+            print('DNS record updated successfully!')
         else:
-            print 'DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\nCloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'], messages=update_resp.json()['messages'])
+            print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\nCloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'], messages=update_resp.json()['messages']))
 
 
 def main():
@@ -148,8 +148,8 @@ def main():
         for domain in config['domains']:
             update_dns(domain, auth, external_ip)
     else:
-        print 'No arguments passed; exiting.'
-        print 'Try cloudflare-ddns --help.'
+        print('No arguments passed; exiting.')
+        print('Try cloudflare-ddns --help.')
 
 
 if __name__ == '__main__':
