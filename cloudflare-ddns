@@ -95,7 +95,7 @@ def get_ipv6():
     """
     Based on: https://gist.github.com/corny/7a07f5ac901844bd20c9
 
-    :return: A string representing the network's
+    :return: A string representing one of the network's IPv6 addresses
     """
     inet6_finder = re.compile('^    inet6 ([0-9a-f:]+)')
     result = None
