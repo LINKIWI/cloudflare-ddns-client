@@ -1,10 +1,10 @@
 #!/usr/bin/python
+import argparse
+import json
 import os
 import re
-import subprocess
-import json
 import requests
-import argparse
+import subprocess
 from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
