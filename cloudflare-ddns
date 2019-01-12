@@ -1,13 +1,15 @@
 #!/usr/bin/python
-import os
-import json
-import requests
 import argparse
+import json
+import os
+import re
+import requests
+import subprocess
 from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
-EXTERNAL_IP_QUERY_API = 'http://ipinfo.io'
+EXTERNAL_IP_QUERY_API = 'https://ipinfo.io'
 CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PUT
@@ -89,13 +91,48 @@ def get_external_ip():
     return requests.get(EXTERNAL_IP_QUERY_API).json()['ip']
 
 
-def update_dns(subdomain, auth, ip_address):
+def get_ipv6():
+    """
+    Based on: https://gist.github.com/corny/7a07f5ac901844bd20c9
+
+    :return: A string representing one of the network's IPv6 addresses
+    """
+    inet6_finder = re.compile('^    inet6 ([0-9a-f:]+)')
+    for line in subprocess.check_output(['ip', '-6', 'addr', 'list', 'scope', 'global', '-deprecated']).decode('utf-8').split('\n'):
+        match = inet6_finder.match(line)
+        if match is not None:
+            # Multiple address might be present, assuming the first one is the best
+            # Do we need to handle temporary/dynamic addresses?
+            return match.group(1)
+    return None
+
+
+def update_dns_record(auth, zone_id, record, ip_address):
+    if record is None or ip_address is None:
+        return
+    print('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
+    if record['content'] == ip_address:
+        print('DNS record is already up-to-date; taking no action')
+        return
+    update_resp = requests.put(
+        CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API.format(zone_id=zone_id, dns_record_id=record['id']),
+        headers=dict(list(auth.items()) + [('Content-Type', 'application/json')]),
+        data=json.dumps({'type': record['type'], 'name': record['name'], 'content': ip_address}),
+    )
+    if update_resp.json()['success']:
+        print('DNS record updated successfully!')
+    else:
+        print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\nCloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'], messages=update_resp.json()['messages']))
+
+
+def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     """
     Updates the specified domain with the given IP address, given authentication parameters.
 
     :param domain: String representing domain to update
     :param auth: Dictionary of API authentication credentials
-    :param ip_address: IP address with which to update the A record
+    :param ipv4_address: IPv4 address with which to update the A record
+    :param ipv6_address: IPv6 address with which to update the AAAA record
     :return: None
     """
     # Extract the domain
@@ -111,30 +148,18 @@ def update_dns(subdomain, auth, ip_address):
         return
     zone_id = zone_names_to_ids[domain]
 
-    # Find the A DNS record ID for this zone
-    dns_records = requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'type': 'A', 'name': subdomain}).json()['result']
-    if not dns_records:
-        print('We couldn\'t find an A record for the (sub)domain {subdomain}. Are you sure you\'ve created one?'.format(subdomain=subdomain))
-        return
-    dns_record_id = dns_records[0]['id']
-    existing_ip_address = dns_records[0]['content']
+    # Find DNS records
+    record_a = None
+    record_aaaa = None
+    for dns_record in requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'name': subdomain}).json()['result']:
+        if dns_record['type'] == 'A':
+            record_a = dns_record
+        elif dns_record['type'] == 'AAAA':
+            record_aaaa = dns_record
 
     # Update the record as necessary
-    new_dns_record = dict(dns_records[0])
-    new_dns_record['content'] = ip_address
-    print('Updating the A record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(dns_record_id=dns_record_id, zone_id=zone_id, subdomain=subdomain, ip_address=ip_address))
-    if existing_ip_address == ip_address:
-        print('DNS record is already up-to-date; taking no action')
-    else:
-        update_resp = requests.put(
-            CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API.format(zone_id=zone_id, dns_record_id=dns_record_id),
-            headers=dict(list(auth.items()) + [('Content-Type', 'application/json')]),
-            data=json.dumps(new_dns_record),
-        )
-        if update_resp.json()['success']:
-            print('DNS record updated successfully!')
-        else:
-            print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\nCloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'], messages=update_resp.json()['messages']))
+    update_dns_record(auth, zone_id, record_a, ipv4_address)
+    update_dns_record(auth, zone_id, record_aaaa, ipv6_address)
 
 
 def main():
@@ -150,8 +175,9 @@ def main():
             return
         auth = {'X-Auth-Email': config['email'], 'X-Auth-Key': config['api_key']}
         external_ip = get_external_ip()
+        ipv6 = get_ipv6()
         for domain in config['domains']:
-            update_dns(domain, auth, external_ip)
+            update_dns(domain, auth, external_ip, ipv6)
     else:
         print('No arguments passed; exiting.')
         print('Try cloudflare-ddns --help.')
