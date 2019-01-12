@@ -153,10 +153,8 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     record_aaaa = None
     for dns_record in requests.get(CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API.format(zone_id=zone_id), headers=auth, params={'name': subdomain}).json()['result']:
         if dns_record['type'] == 'A':
-            assert(record_a is None)
             record_a = dns_record
         elif dns_record['type'] == 'AAAA':
-            assert(record_aaaa is None)
             record_aaaa = dns_record
 
     # Update the record as necessary
