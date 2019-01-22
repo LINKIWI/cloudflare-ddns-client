@@ -9,7 +9,7 @@ from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
-EXTERNAL_IP_QUERY_API = 'https://ipinfo.io'
+EXTERNAL_IP_QUERY_API = 'https://api.ipify.org/?format=json'
 CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PUT
