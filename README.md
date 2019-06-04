@@ -20,6 +20,8 @@ After successfully installing, simply run
 cloudflare-ddns --configure
 ```
 You will be presented with an interactive prompt to enter in details about your CloudFlare email, API key, and domains to auto-update.
+
+Depending on how your subdomain records are configured (such as wildcard addresses), you may need to make multiple domain entries to ensure they all update. Example: `domain.com,*.domain.com,subdomain.domain.com`
 ```
 =============Configuring CloudFlare automatic DDNS update client=============
 You may rerun this at any time with cloudflare-ddns --configure
