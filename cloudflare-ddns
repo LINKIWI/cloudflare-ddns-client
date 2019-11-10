@@ -5,6 +5,7 @@ import os
 import re
 import requests
 import subprocess
+import configparser
 from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
@@ -36,28 +37,25 @@ def load_configuration():
     """
     Loads the configuration file from disk.
 
-    :return: A dictionary that either has all keys 'domains', 'email', and 'api_key' read from the configuration file,
+    :return: A dictionary that either has all the keys read from the configuration file,
              or an empty dictionary if there was an error reading the file.
     """
     try:
         # Attempt to parse configuration file
-        config = {}
-        for config_line in map(lambda text: text.replace('\n', ''), open(CONFIGURATION_FILE).readlines()):
-            if config_line.startswith('domains'):
-                config['domains'] = config_line[8:].split(',')
-            elif config_line.startswith('email'):
-                config['email'] = config_line[6:]
-            elif config_line.startswith('api_key'):
-                config['api_key'] = config_line[8:]
+        config = configparser.ConfigParser()
+        config.read(CONFIGURATION_FILE)
 
         # Ensure all fields are present
-        if all([key in config for key in ['domains', 'email', 'api_key']]):
-            return config
+        if ('domains' in config['Cloudflare DDNS']):
+            if (config['Cloudflare DDNS']['auth_type'] == 'token' and 'api_token' in config['Cloudflare DDNS']):
+                return config['Cloudflare DDNS']
+            elif (config['Cloudflare DDNS']['auth_type'] == 'key' and all([key in config['Cloudflare DDNS'] for key in ['email', 'api_key']])):
+                return config['Cloudflare DDNS']
         else:
-            print('Configuration file {config_file} is missing at least one of the following config parameters: domains, email, or api_key'.format(config_file=CONFIGURATION_FILE))
+            print('Configuration file {config_file} is missing parameters. Run cloudflare-ddns --configure to set the configuration.'.format(config_file=CONFIGURATION_FILE))
             return {}
-    except IOError:
-        print('Configuration file {config_file} not found! Did you run cloudflare-ddns --configure?'.format(config_file=CONFIGURATION_FILE))
+    except KeyError:
+        print('Configuration file {config_file} not found or invalid! Did you run cloudflare-ddns --configure?'.format(config_file=CONFIGURATION_FILE))
         return {}
 
 
@@ -67,19 +65,31 @@ def initialize_configuration():
 
     :return: None, but writes the data to CONFIGURATION_FILE
     """
+    config = configparser.ConfigParser()
+    config['Cloudflare DDNS'] = {}
     print('=============Configuring CloudFlare automatic DDNS update client=============')
     print('You may rerun this at any time with cloudflare-ddns --configure')
     print('Quit and cancel at any time with Ctrl-C')
     print('')
-    email = input('Enter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
-    print('')
-    api_key = input('Enter the API key associated with your CloudFlare account. You can find your API key at https://www.cloudflare.com/a/account/my-account\nExample: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
-    print('')
+    auth_type = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens for more info.\nEnter [T]oken or [K]ey: ')
+    if auth_type.lower() == 't' or auth_type.lower() == 'token':
+        config['Cloudflare DDNS']['auth_type'] = 'token'
+        api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\nRequired permissions are READ Account.Access: Organizations, Identity Providers, and Groups; READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\nCloudFlare API token: ')
+        config['Cloudflare DDNS']['api_token'] = api_token
+    elif auth_type.lower() == 'k' or auth_type.lower() == 'key':
+        config['Cloudflare DDNS']['auth_type'] = 'key'
+        email = input('Enter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
+        print('')
+        api_key = input('Enter the API key associated with your CloudFlare account. You can find your API key at https://dash.cloudflare.com/profile/api-tokens\nExample: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
+        print('')
+        config['Cloudflare DDNS']['email'] = email
+        config['Cloudflare DDNS']['api_key'] = api_key
     domains = input('Enter the domains for which you would like to automatically update the DNS records, delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\nComma-delimited domains: ')
+    config['Cloudflare DDNS']['domains'] = domains
+    with open(CONFIGURATION_FILE, 'w') as config_file:
+        config.write(config_file)
     print('')
     print('Configuration file written to {config_file} successfully.'.format(config_file=CONFIGURATION_FILE))
-    with open(CONFIGURATION_FILE, 'w') as config_file:
-        config_file.write('email={email}\napi_key={api_key}\ndomains={domains}\n'.format(email=email, api_key=api_key, domains=domains))
 
 
 def get_external_ip():
@@ -178,11 +188,15 @@ def main():
     elif args.update_now:
         config = load_configuration()
         if not config:
+            print('There was a problem with the configuration file {config_file}! Try running cloudflare-ddns --configure'.format(config_file=CONFIGURATION_FILE))
             return
-        auth = {'X-Auth-Email': config['email'], 'X-Auth-Key': config['api_key']}
+        if config['auth_type'] == 'token':
+            auth = {'Authorization': 'Bearer {token}'.format(token=config['api_token'])}
+        elif config['auth_type'] == 'key':
+            auth = {'X-Auth-Email': config['email'], 'X-Auth-Key': config['api_key']}
         external_ip = get_external_ip()
         ipv6 = get_ipv6()
-        for domain in config['domains']:
+        for domain in config['domains'].split(','):
             update_dns(domain, auth, external_ip, ipv6)
     else:
         print('No arguments passed; exiting.')
