@@ -11,7 +11,7 @@ from tld import get_fld
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
 EXTERNAL_IP_QUERY_API = 'https://api.ipify.org/?format=json'
-CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones?per_page=50'  # GET
+CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PUT
 
@@ -148,12 +148,24 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     """
     # Extract the domain
     domain = get_fld(subdomain, fix_protocol=True)
+    
     # Find the zone ID corresponding to the domain
-    zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth, timeout=6)
-    if zone_resp.status_code != 200:
-        print('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
-        return
-    zone_names_to_ids = {zone['name']: zone['id'] for zone in zone_resp.json()['result']}
+    cur_page = 1
+    zone_names_to_ids = {}
+    while True:
+        zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth, timeout=6, params={'per_page': 50, 'page': cur_page})
+        if zone_resp.status_code != 200:
+            print('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
+            return
+        data = zone_resp.json()
+        total_pages = data['result_info']['total_pages']
+        for zone in data['result']:
+            zone_names_to_ids[zone['name']] = zone['id']
+        if (cur_page < total_pages):
+            cur_page += 1
+        else:
+            break
+
     if domain not in zone_names_to_ids:
         print('The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'.format(domain=domain, domain_list=map(str, zone_names_to_ids.keys())))
         return
