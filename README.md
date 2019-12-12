@@ -53,3 +53,13 @@ Then add the entry
 ```
 0 0 * * * /usr/local/bin/cloudflare-ddns --update-now > /dev/null 2>&1
 ```
+
+### Docker / Kubernetes
+A Dockerfile is included. This is mostly useful for cases where you want to run cloudflare-ddns-client as a cronjob in Kubernetes
+
+Configuration must be created before running in docker and provided either as a Kubernetes secret or mounted as a file into the container.
+
+Usage in local docker
+```
+docker run -v /path/to/your/.cloudflare-ddns:/home/cloudflare-ddns-client/.cloudflare-ddns cloudflare-ddns-client:latest
+```
