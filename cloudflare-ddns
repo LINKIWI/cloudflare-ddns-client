@@ -148,7 +148,7 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     """
     # Extract the domain
     domain = get_fld(subdomain, fix_protocol=True)
-    
+
     # Find the zone ID corresponding to the domain
     cur_page = 1
     zone_names_to_ids = {}
