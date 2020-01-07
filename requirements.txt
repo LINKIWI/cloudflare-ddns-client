@@ -1,3 +1,5 @@
 argparse
 requests
 tld
+configparser
+typing
