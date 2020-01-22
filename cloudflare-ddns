@@ -4,6 +4,7 @@ import json
 import os
 import re
 import requests
+import stat
 import subprocess
 import configparser
 from tld import get_fld
@@ -88,6 +89,8 @@ def initialize_configuration():
     config['Cloudflare DDNS']['domains'] = domains
     with open(CONFIGURATION_FILE, 'w') as config_file:
         config.write(config_file)
+    if input('Would you like to protect config file by chmod 600? [y]/n ')[:1].lower() != 'n':
+        os.chmod(CONFIGURATION_FILE, stat.S_IREAD | stat.S_IWRITE)
     print('')
     print('Configuration file written to {config_file} successfully.'.format(config_file=CONFIGURATION_FILE))
 
