@@ -51,7 +51,7 @@ crontab -e
 ```
 Then add the entry
 ```
-0 0 * * * /usr/local/bin/cloudflare-ddns --update-now > /dev/null 2>&1
+0 0 * * * /usr/local/bin/cloudflare-ddns --update-now
 ```
 
 ### Docker / Kubernetes
