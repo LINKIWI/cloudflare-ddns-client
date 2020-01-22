@@ -13,7 +13,7 @@ CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 EXTERNAL_IP_QUERY_API = 'https://api.ipify.org/?format=json'
 CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
-CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PUT
+CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PATCH
 
 # Backwards compatible with Python 2
 try:
@@ -124,10 +124,10 @@ def update_dns_record(auth, zone_id, record, ip_address):
     if record['content'] == ip_address:
         print('DNS record is already up-to-date; taking no action')
         return
-    update_resp = requests.put(
+    update_resp = requests.patch(
         CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API.format(zone_id=zone_id, dns_record_id=record['id']),
         headers=dict(list(auth.items()) + [('Content-Type', 'application/json')]),
-        data=json.dumps({'type': record['type'], 'name': record['name'], 'content': ip_address, 'proxied': record['proxied']}),
+        data=json.dumps({'content': ip_address}),
         timeout=6,
     )
     if update_resp.json()['success']:
