@@ -7,15 +7,7 @@ import requests
 import stat
 import subprocess
 import configparser
-import sys
 from tld import get_fld
-
-sys.path.extend(os.path.dirname(__file__))  # ensure that local package is available
-
-try:
-    from cloudflare_ddns_src import FetchExternalIPError
-except ImportError:
-    raise ImportError("Failed to import local module 'cloudflare_ddns_src' please run 'sudo make install' again.")
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
@@ -29,6 +21,12 @@ try:
     input = raw_input
 except NameError:
     pass
+
+
+class FetchExternalIPError(Exception):
+    def __init__(self, message):
+        super(FetchExternalIPError, self).__init__()
+        self.message = message
 
 
 def load_arguments():
