@@ -11,11 +11,6 @@ from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
-EXTERNAL_IP_QUERY_API = 'https://api.ipify.org/?format=json'
-CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
-CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
-CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PATCH
-
 # Backwards compatible with Python 2
 try:
     input = raw_input
@@ -33,10 +28,25 @@ def load_arguments():
     parser.add_argument('--configure', action='store_true', help='Interactively configure the account and domain for the DDNS updates.')
     parser.add_argument('--update-now', action='store_true', help='Update DNS records right now.')
     parser.add_argument('--debug', action='store_true', help='Print detailed debug output.')
+    parser.add_argument('--insecure-requests', action='store_true', help='Use http instead of https and no ssl verification.')
     return parser.parse_args()
 
 
 START_ARGS = load_arguments()
+USED_PROTOCOL = 'https'
+VALIDATE_REQUESTS = True
+
+if START_ARGS.insecure_requests:
+    USED_PROTOCOL = 'http'
+    VALIDATE_REQUESTS = False
+    print("Using http and non validated requests!")
+
+
+EXTERNAL_IP_QUERY_API = USED_PROTOCOL + '://api.ipify.org/?format=json'
+# CloudFlare API only works with https
+CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
+CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
+CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PATCH
 
 
 def load_configuration():
@@ -112,8 +122,11 @@ def get_external_ip():
     :return: A string representing the network's external IP address
     """
     try:
-        r = requests.get(EXTERNAL_IP_QUERY_API, timeout=6)
+        r = requests.get(EXTERNAL_IP_QUERY_API, timeout=6, verify=VALIDATE_REQUESTS)
         return r.json()['ip']
+    except requests.exceptions.SSLError:
+        print('SSLError. Try to use "--insecure-requests".')
+        return
     except requests.exceptions.ConnectTimeout:
         print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
         return
@@ -279,9 +292,13 @@ def main():
         external_ip = get_external_ip()
         if external_ip:
             print('Found external IPv4: "{}"'.format(str(external_ip)))
+        else:
+            print('Could not fetch an external IPv4.')
         ipv6 = get_ipv6()
         if ipv6:
             print('Found external IPv6: "{}"'.format(str(ipv6)))
+        else:
+            print('Could not fetch an external IPv6.')
         try:
             domains = config['domains'].split(',')
         except KeyError:
