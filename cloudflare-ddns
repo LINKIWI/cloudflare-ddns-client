@@ -66,10 +66,12 @@ def load_configuration():
             elif config['Cloudflare DDNS']['auth_type'] == 'key' and all([key in config['Cloudflare DDNS'] for key in ['email', 'api_key']]):
                 return config['Cloudflare DDNS']
         else:
-            print('Configuration file {config_file} is missing parameters. Run cloudflare-ddns --configure to set the configuration.'.format(config_file=CONFIGURATION_FILE))
+            print('Configuration file {config_file} is missing parameters. Run cloudflare-ddns --configure'
+                  ' to set the configuration.'.format(config_file=CONFIGURATION_FILE))
             return {}
     except KeyError:
-        print('Configuration file {config_file} not found or invalid! Did you run cloudflare-ddns --configure?'.format(config_file=CONFIGURATION_FILE))
+        print('Configuration file {config_file} not found or invalid! Did you run cloudflare-ddns --configure?'
+              .format(config_file=CONFIGURATION_FILE))
         return {}
 
 
@@ -83,20 +85,27 @@ def initialize_configuration():
     config['Cloudflare DDNS'] = {}
     print('=============Configuring CloudFlare automatic DDNS update client=============')
     print('You may rerun this at any time with cloudflare-ddns --configure')
-    print('Quit and cancel at any time with Ctrl-C')
-    print('')
-    auth_type = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens for more info.\nEnter [T]oken or [K]ey: ')
+    print('Quit and cancel at any time with Ctrl-C\n')
+    auth_type = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens'
+                      ' for more info.\nEnter [T]oken or [K]ey: ')
     if auth_type.lower() == 't' or auth_type.lower() == 'token':
         config['Cloudflare DDNS']['auth_type'] = 'token'
-        api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\nRequired permissions are READ Account.Access: Organizations, Identity Providers, and Groups; READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\nCloudFlare API token: ')
+        api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\n'
+                          'Required permissions are READ Account.Access: Organizations, Identity Providers, and Groups; '
+                          'READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\n'
+                          'CloudFlare API token: ')
         config['Cloudflare DDNS']['api_token'] = api_token
     elif auth_type.lower() == 'k' or auth_type.lower() == 'key':
         config['Cloudflare DDNS']['auth_type'] = 'key'
         email = input('\nEnter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
-        api_key = input('\nEnter the API key associated with your CloudFlare account. You can find your API key at https://dash.cloudflare.com/profile/api-tokens\nExample: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
+        api_key = input('\nEnter the API key associated with your CloudFlare account. You can find your API key at '
+                        'https://dash.cloudflare.com/profile/api-tokens\n'
+                        'Example: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
         config['Cloudflare DDNS']['email'] = email
         config['Cloudflare DDNS']['api_key'] = api_key
-    domains = input('Enter the domains for which you would like to automatically update the DNS records, delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\nComma-delimited domains: ')
+    domains = input('Enter the domains for which you would like to automatically update the DNS records, '
+                    'delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\n'
+                    'Comma-delimited domains: ')
     config['Cloudflare DDNS']['domains'] = domains
     with open(CONFIGURATION_FILE, 'w') as config_file:
         config.write(config_file)
@@ -146,7 +155,8 @@ def get_ipv6():
 def update_dns_record(auth, zone_id, record, ip_address):
     if record is None or ip_address is None:
         return
-    print('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'.format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
+    print('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'
+          .format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
     if record['content'] == ip_address:
         print('DNS record is already up-to-date; taking no action')
         return
@@ -159,7 +169,9 @@ def update_dns_record(auth, zone_id, record, ip_address):
     if update_resp.json().get('success'):
         print('DNS record updated successfully!')
     else:
-        print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\n\nCloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'], messages=update_resp.json()['messages']))
+        print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\n\n'
+              'CloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'],
+                                                                              messages=update_resp.json()['messages']))
 
 
 def update_dns(subdomain, auth, ipv4_address, ipv6_address):
@@ -196,7 +208,8 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
                     print(e)  # this will print detailed info about missing permission etc.
                     # e.g. "requires permission 'com.cloudflare.api.account.zone.list' to list zones"
             except KeyError:
-                print('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
+                print('Authentication error: make sure your email and API key are correct. '
+                      'To set new values, run cloudflare-ddns --configure')
             return
         data = zone_resp.json()
         total_pages = data['result_info']['total_pages']
