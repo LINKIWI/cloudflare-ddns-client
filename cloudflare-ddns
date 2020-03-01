@@ -23,12 +23,6 @@ except NameError:
     pass
 
 
-class FetchExternalIPError(Exception):
-    def __init__(self, message):
-        super(FetchExternalIPError, self).__init__()
-        self.message = message
-
-
 def load_arguments():
     """
     Arguments to the program.
@@ -121,17 +115,19 @@ def get_external_ip():
         r = requests.get(EXTERNAL_IP_QUERY_API, timeout=6)
         return r.json()['ip']
     except requests.exceptions.ConnectTimeout:
-        raise FetchExternalIPError('Cannot fetch your external ip. {} not reachable.'
-                                   .format(EXTERNAL_IP_QUERY_API))
+        print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
+        return
     except requests.exceptions.ConnectionError:
-        raise FetchExternalIPError('Cannot fetch your external ip. {} not reachable.'
-                                   .format(EXTERNAL_IP_QUERY_API))
+        print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
+        return
     except json.decoder.JSONDecodeError:
-        raise FetchExternalIPError('Cannot fetch your external ip. Data provided by {} is invalid.\nRaw:\n{}'
-                                   .format(EXTERNAL_IP_QUERY_API, r.text))
+        print('Cannot fetch your external ip. Data provided by {} is invalid.\nRaw:\n{}'
+              .format(EXTERNAL_IP_QUERY_API, r.text))
+        return
     except KeyError:
-        raise FetchExternalIPError('Cannot fetch your external ip. No ip provided by {}.\nRaw:\n{}'
-                                   .format(EXTERNAL_IP_QUERY_API, r.text))
+        print('Cannot fetch your external ip. No ip provided by {}.\nRaw:\n{}'
+              .format(EXTERNAL_IP_QUERY_API, r.text))
+        return
 
 
 def get_ipv6():
@@ -280,13 +276,12 @@ def main():
         else:
             raise RuntimeError('There was a problem with the configuration file {config_file}! '
                                'Try running cloudflare-ddns --configure'.format(config_file=CONFIGURATION_FILE))
-        try:
-            external_ip = get_external_ip()
+        external_ip = get_external_ip()
+        if external_ip:
             print('Found external IPv4: "{}"'.format(str(external_ip)))
-        except FetchExternalIPError as e:
-            raise RuntimeError(e.message)
         ipv6 = get_ipv6()
-        print('Found external IPv6: "{}"'.format(str(ipv6)))
+        if ipv6:
+            print('Found external IPv6: "{}"'.format(str(ipv6)))
         try:
             domains = config['domains'].split(',')
         except KeyError:
