@@ -63,3 +63,7 @@ Usage in local docker
 ```
 docker run -v /path/to/your/.cloudflare-ddns:/home/cloudflare-ddns-client/.cloudflare-ddns cloudflare-ddns-client:latest
 ```
+
+### Contributions
+
+Contributions of all form are welcome :)
