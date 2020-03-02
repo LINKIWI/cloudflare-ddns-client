@@ -125,7 +125,7 @@ def get_external_ip():
         r = requests.get(EXTERNAL_IP_QUERY_API, timeout=6, verify=VALIDATE_REQUESTS)
         return r.json()['ip']
     except requests.exceptions.SSLError:
-        print('SSLError. Try to use "--insecure-requests".')
+        print('SSLError. Try to use "--insecure-requests" if you know what you are doing.')
         return
     except requests.exceptions.ConnectTimeout:
         print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
