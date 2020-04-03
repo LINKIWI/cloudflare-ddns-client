@@ -78,16 +78,22 @@ def initialize_configuration():
     print('=============Configuring CloudFlare automatic DDNS update client=============')
     print('You may rerun this at any time with cloudflare-ddns --configure')
     print('Quit and cancel at any time with Ctrl-C\n')
-    auth_type = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens'
-                      ' for more info.\nEnter [T]oken or [K]ey: ')
-    if auth_type.lower() == 't' or auth_type.lower() == 'token':
+    auth_type = None
+    while not auth_type:
+        auth_type_input = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens '
+                                'for more info.\nEnter [T]oken or [K]ey: ')
+        if auth_type_input.strip().lower() in ['t', 'token']:
+            auth_type = "token"
+        elif auth_type_input.strip().lower() in ['k', 'key']:
+            auth_type = "key"
+    if auth_type == "token":
         config['Cloudflare DDNS']['auth_type'] = 'token'
         api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\n'
                           'Required permissions are READ Account.Access: Organizations, Identity Providers, and Groups; '
                           'READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\n'
                           'CloudFlare API token: ')
         config['Cloudflare DDNS']['api_token'] = api_token
-    elif auth_type.lower() == 'k' or auth_type.lower() == 'key':
+    elif auth_type == "key":
         config['Cloudflare DDNS']['auth_type'] = 'key'
         email = input('\nEnter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
         api_key = input('\nEnter the API key associated with your CloudFlare account. You can find your API key at '
@@ -95,6 +101,8 @@ def initialize_configuration():
                         'Example: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
         config['Cloudflare DDNS']['email'] = email
         config['Cloudflare DDNS']['api_key'] = api_key
+    else:
+        raise RuntimeError("Invalid auth type provided!")
     domains = input('Enter the domains for which you would like to automatically update the DNS records, '
                     'delimited by a single comma.\nExample: kevinlin.info,cloudflaremanager.com\n'
                     'Comma-delimited domains: ')
