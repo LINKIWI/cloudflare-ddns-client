@@ -80,8 +80,9 @@ def initialize_configuration():
     print('Quit and cancel at any time with Ctrl-C\n')
     auth_type = None
     while not auth_type:
-        auth_type_input = input('Use API token or API key to authenticate?\nSee https://dash.cloudflare.com/profile/api-tokens '
-                                'for more info.\nEnter [T]oken or [K]ey: ')
+        auth_type_input = input('Use API token or API key to authenticate?\n'
+                                'See https://dash.cloudflare.com/profile/api-tokens for more info.\n'
+                                'Choose [T]oken or [K]ey: ')
         if auth_type_input.strip().lower() in ['t', 'token']:
             auth_type = "token"
         elif auth_type_input.strip().lower() in ['k', 'key']:
