@@ -11,7 +11,8 @@ from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
-EXTERNAL_IP_QUERY_API = 'https://api.ipify.org/?format=json'
+EXTERNAL_IP_QUERY_APIS = ['https://api.ipify.org', 'https://ifconfig.io/ip', 'https://ident.me/',
+                          'https://ifconfig.me/ip', 'https://icanhazip.com/']
 CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PATCH
@@ -120,23 +121,17 @@ def get_external_ip():
 
     :return: A string representing the network's external IP address
     """
-    try:
-        r = requests.get(EXTERNAL_IP_QUERY_API, timeout=6)
-        return r.json()['ip']
-    except requests.exceptions.ConnectTimeout:
-        print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
-        return
-    except requests.exceptions.ConnectionError:
-        print('Cannot fetch your external ip. {} not reachable.'.format(EXTERNAL_IP_QUERY_API))
-        return
-    except json.decoder.JSONDecodeError:
-        print('Cannot fetch your external ip. Data provided by {} is invalid.\nRaw:\n{}'
-              .format(EXTERNAL_IP_QUERY_API, r.text))
-        return
-    except KeyError:
-        print('Cannot fetch your external ip. No ip provided by {}.\nRaw:\n{}'
-              .format(EXTERNAL_IP_QUERY_API, r.text))
-        return
+    for api in EXTERNAL_IP_QUERY_APIS:
+        try:
+            if START_ARGS.debug:
+                print("Fetching {}".format(api))
+            r = requests.get(api, timeout=6)
+            return r.text
+        except requests.exceptions.RequestException:
+            print('Cannot fetch your external ip. {} not reachable.'.format(api))
+    print("All {} checked services did not return any external ip address. Please check your internet connection."
+          .format(len(EXTERNAL_IP_QUERY_APIS)))
+    return
 
 
 def get_ipv6():
@@ -291,6 +286,8 @@ def main():
         ipv6 = get_ipv6()
         if ipv6:
             print('Found external IPv6: "{}"'.format(str(ipv6)))
+        if not external_ip and not ipv6:
+            raise RuntimeError("Neither external IPv4 nor IPv6 found. Please check your internet connection.")
         try:
             domains = config['domains'].split(',')
         except KeyError:
