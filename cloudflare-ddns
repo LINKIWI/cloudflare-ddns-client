@@ -126,7 +126,7 @@ def get_external_ip():
             if START_ARGS.debug:
                 print("Fetching {}".format(api))
             r = requests.get(api, timeout=6)
-            return r.text
+            return r.text.strip() # Fix bug with trailing whitespace, Fixes #39
         except requests.exceptions.RequestException:
             print('Cannot fetch your external ip. {} not reachable.'.format(api))
     print("All {} checked services did not return any external ip address. Please check your internet connection."
