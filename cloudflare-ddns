@@ -126,7 +126,7 @@ def get_external_ip():
             if START_ARGS.debug:
                 print("Fetching {}".format(api))
             r = requests.get(api, timeout=6)
-            return r.text
+            return r.text.strip() # Fix bug with trailing whitespace, Fixes #39
         except requests.exceptions.RequestException:
             print('Cannot fetch your external ip. {} not reachable.'.format(api))
     print("All {} checked services did not return any external ip address. Please check your internet connection."
@@ -153,7 +153,6 @@ def get_ipv6():
 def update_dns_record(auth, zone_id, record, ip_address):
     if record is None or ip_address is None:
         return
-    ip_address = ip_address.strip() # Fix bug with trailing whitespace, Fixes #39
     print('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'
           .format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
     if record['content'] == ip_address:
