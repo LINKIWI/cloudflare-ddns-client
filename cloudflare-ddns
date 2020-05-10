@@ -225,7 +225,7 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     zone_id = zone_names_to_ids[domain]
 
     # Find DNS records
-    print('Finding all DNS records.')
+    print('Finding all DNS records for domain "{}".'.format(subdomain))
     record_a = None
     record_aaaa = None
     r = requests.get(
@@ -257,6 +257,14 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
         elif dns_record['type'] == 'AAAA':
             record_aaaa = dns_record
 
+    if record_a is None and record_aaaa is None:
+        print('No A or AAAA records defined for domain "{}".'.format(subdomain))
+        if START_ARGS.debug:
+            print(r.json())
+        else:
+            print('Use --debug for more details')
+        return
+    
     # Update the record as necessary
     update_dns_record(auth, zone_id, record_a, ipv4_address)
     update_dns_record(auth, zone_id, record_aaaa, ipv6_address)
@@ -293,6 +301,11 @@ def main():
         except KeyError:
             raise RuntimeError('There was a problem with the configuration file {config_file}! '
                                'Try running cloudflare-ddns --configure'.format(config_file=CONFIGURATION_FILE))
+
+        if not domains:
+            raise RuntimeError("No domains found to update.")
+        
+        print("Handling domains: {}.".format(domains))
         for domain in domains:
             update_dns(domain, auth, external_ip, ipv6)
     else:
