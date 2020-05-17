@@ -4,7 +4,7 @@ A Linux client for servers hosting CloudFlare-managed domains behind a dynamic e
 This Python-based script interfaces with [CloudFlare's client API](https://api.cloudflare.com/) to automatically and periodically update A and AAAA records of your CloudFlare domains with your server's current external IP address. This is generally intended for users whose servers are on a residential ISP with no static IP address assignment.
 
 ### Requirements
-This script uses python3 to interact with the cloudflare api. The requirements are
+Before installing make sure that these packages are installed on your system.
 ```
 python3
 python3-pip
