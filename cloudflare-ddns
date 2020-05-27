@@ -54,7 +54,9 @@ def load_configuration():
 
         # Ensure all fields are present
         if 'domains' in config['Cloudflare DDNS']:
-            if config['Cloudflare DDNS']['auth_type'] == 'token' and 'api_token' in config['Cloudflare DDNS']:
+            if config['Cloudflare DDNS']['auth_type'] == 'token':
+                if 'api_token' not in config['Cloudflare DDNS'] and os.environ.get('API_TOKEN'):
+                    config['Cloudflare DDNS']['api_token'] = os.environ.get('API_TOKEN')
                 return config['Cloudflare DDNS']
             elif config['Cloudflare DDNS']['auth_type'] == 'key' and all([key in config['Cloudflare DDNS'] for key in ['email', 'api_key']]):
                 return config['Cloudflare DDNS']
