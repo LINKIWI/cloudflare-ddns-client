@@ -1,18 +1,14 @@
-FROM ubuntu:18.04
-RUN apt update && \
-  apt -y dist-upgrade && \
-  apt -y install \
-  iproute2 \
-  python3 \
-  python3-pip
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10 && \
-  update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10
-RUN python -m pip install \
-  argparse \
-  requests \
-  tld
-RUN groupadd -g 1001 cloudflare-ddns-client && \
-  useradd -u 1001 -g 1001 -s /bin/bash -m cloudflare-ddns-client && \
+FROM alpine:3
+RUN apk add --no-cache --virtual .build-deps g++ python3-dev libffi-dev openssl-dev && \
+  apk add --no-cache --update python3 && \
+  apk add --update py-pip && \
+  apk add iproute2 && \
+  ln -s /usr/bin/python3 /usr/bin/python
+RUN python3 -m pip install \
+   argparse \
+   tld
+RUN addgroup -g 1001 cloudflare-ddns-client && \
+  adduser -D -u 1001 -G cloudflare-ddns-client cloudflare-ddns-client && \
   mkdir -p /usr/local/bin
 USER cloudflare-ddns-client
 COPY --chown=cloudflare-ddns-client cloudflare-ddns /usr/local/bin/cloudflare-ddns-client
