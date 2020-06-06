@@ -151,24 +151,21 @@ def get_ipv6():
     # a fixed IPv6 address locally even though the IPv6 address prefix on the Internet might change over time.
     # According to rfc 4193, the IPv6 address range fc00::/7 is reserved for this kind of purpose.
     def is_ula_addr(ipAddr):
-        # Only check the first 16 bits of the IPv6 address to judge if the address is one of the ULA addresses
-        return (int(ipAddr[:4], 16) & 0xfe00 ) == 0xfc00
-
-    matchedIPs = []
+        try:
+            prefixValue = int(ipAddr[:ipAddr.find(':', 0)], 16)
+            return (prefixValue & 0xfe00 ) == 0xfc00
+        except ValueError as e:
+            return False
 
     inet6_finder = re.compile('^    inet6 ([0-9a-f:]+)')
 
-    # add the 'mngtmpaddr' argument to filter temporary IPv6 addresses
-    for line in subprocess.check_output(['ip', '-6', 'addr', 'list', 'scope', 'global', 'mngtmpaddr', '-deprecated']).decode('utf-8').split('\n'):
+    for line in subprocess.check_output(['ip', '-6', 'addr', 'list', 'scope', 'global', '-deprecated']).decode('utf-8').split('\n'):
         match = inet6_finder.match(line)
         if match is not None:
             # Multiple address might be present, assuming the first one is the best
             ipv6_addr = match.group(1)
             if not is_ula_addr(ipv6_addr):
-                matchedIPs.append(ipv6_addr)
-
-    if len(matchedIPs) > 0:
-        return matchedIPs[0]
+                return ipv6_addr
 
     return None
 
