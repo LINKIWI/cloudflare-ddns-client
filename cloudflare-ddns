@@ -142,13 +142,31 @@ def get_ipv6():
 
     :return: A string representing one of the network's IPv6 addresses
     """
+
+    # Some network configurations might allow the gateway to provide unique local addresses(ULA) to the devices on the LAN.
+    # In this case, one network adapter could have two non-temporary IPv6 addresses:
+    #   The IPv6 Address on the Internet(2000::/3) and The unique local address.
+    #   The second one cannot be accessed outside, it is designed to provide convenience on accessing devices on the same network.
+    # The ULA prefix is statically configured by the gateway, which means devices on the same local network could have
+    # a fixed IPv6 address locally even though the IPv6 address prefix on the Internet might change over time.
+    # According to rfc 4193, the IPv6 address range fc00::/7 is reserved for this kind of purpose.
+    def is_ula_addr(ipAddr):
+        try:
+            prefixValue = int(ipAddr[:ipAddr.find(':', 0)], 16)
+            return (prefixValue & 0xfe00 ) == 0xfc00
+        except ValueError as e:
+            return False
+
     inet6_finder = re.compile('^    inet6 ([0-9a-f:]+)')
+
     for line in subprocess.check_output(['ip', '-6', 'addr', 'list', 'scope', 'global', '-deprecated']).decode('utf-8').split('\n'):
         match = inet6_finder.match(line)
         if match is not None:
             # Multiple address might be present, assuming the first one is the best
-            # Maybe add flag for preventing temporary addresses?
-            return match.group(1)
+            ipv6_addr = match.group(1)
+            if not is_ula_addr(ipv6_addr):
+                return ipv6_addr
+
     return None
 
 
