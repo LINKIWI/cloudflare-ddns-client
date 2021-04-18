@@ -77,11 +77,22 @@ def initialize_configuration():
     :return: None, but writes the data to CONFIGURATION_FILE
     """
     config = configparser.ConfigParser()
-    config['Cloudflare DDNS'] = {}
+    config['Cloudflare DDNS'] = load_configuration()
     print('=============Configuring CloudFlare automatic DDNS update client=============')
     print('You may rerun this at any time with cloudflare-ddns --configure')
     print('Quit and cancel at any time with Ctrl-C\n')
     auth_type = None
+    change_token = 'y'
+
+    if os.path.isfile(CONFIGURATION_FILE): 
+        while True:
+            change_token = input('Change API token/key (y/n): ')
+            change_token = change_token.strip().lower()
+            if change_token in {'y', 'n', 'yes', 'no'}:
+                break
+        if change_token in {'n', 'no'}:
+            auth_type = config['Cloudflare DDNS']['auth_type']
+    
     while not auth_type:
         auth_type_input = input('Use API token or API key to authenticate?\n'
                                 'See https://dash.cloudflare.com/profile/api-tokens for more info.\n'
@@ -91,20 +102,28 @@ def initialize_configuration():
         elif auth_type_input.strip().lower() in ['k', 'key']:
             auth_type = "key"
     if auth_type == "token":
-        config['Cloudflare DDNS']['auth_type'] = 'token'
-        api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\n'
-                          'Required permissions are READ Account.Access: Organizations, Identity Providers, and Groups; '
-                          'READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\n'
-                          'CloudFlare API token: ')
-        config['Cloudflare DDNS']['api_token'] = api_token
+        if change_token in {'y', 'yes'}:
+            config['Cloudflare DDNS']['auth_type'] = 'token'
+            api_token = input('Enter the API token you created at https://dash.cloudflare.com/profile/api-tokens.\n'
+                              'Required permissions are READ Account.Access: Organizations, Identity Providers, and Groups; '
+                              'READ Zone.Zone; EDIT Zone.DNS\nExample: XhtcWvLmWBFGRW-YSK52WBghKtfC40rtuysLAETs\n'
+                              'CloudFlare API token: ')
+            config['Cloudflare DDNS']['api_token'] = api_token
+            if config.has_option('Cloudflare DDNS', 'email'):
+                config.remove_option('Cloudflare DDNS', 'email')
+            if config.has_option('Cloudflare DDNS', 'api_key'):
+                config.remove_option('Cloudflare DDNS', 'api_key')
     elif auth_type == "key":
-        config['Cloudflare DDNS']['auth_type'] = 'key'
-        email = input('\nEnter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
-        api_key = input('\nEnter the API key associated with your CloudFlare account. You can find your API key at '
-                        'https://dash.cloudflare.com/profile/api-tokens\n'
-                        'Example: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
-        config['Cloudflare DDNS']['email'] = email
-        config['Cloudflare DDNS']['api_key'] = api_key
+        if change_token in {'y', 'yes'}:
+            config['Cloudflare DDNS']['auth_type'] = 'key'
+            email = input('\nEnter the email address associated with your CloudFlare account.\nExample: developer@kevinlin.info\nEmail: ')
+            api_key = input('\nEnter the API key associated with your CloudFlare account. You can find your API key at '
+                            'https://dash.cloudflare.com/profile/api-tokens\n'
+                            'Example: 7d9dfl2fid74lsg50saa9j2dbqm67zn39v673\nCloudFlare API key: ')
+            config['Cloudflare DDNS']['email'] = email
+            config['Cloudflare DDNS']['api_key'] = api_key
+            if config.has_option('Cloudflare DDNS', 'api_token'):
+                config.remove_option('Cloudflare DDNS', 'api_token')
     else:
         raise RuntimeError("Invalid auth type provided!")
     domains = input('Enter the domains for which you would like to automatically update the DNS records, '
