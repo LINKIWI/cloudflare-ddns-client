@@ -11,8 +11,8 @@ from tld import get_fld
 
 CONFIGURATION_FILE = os.path.expanduser('~/') + '.cloudflare-ddns'
 
-EXTERNAL_IP_QUERY_APIS = ['https://api.ipify.org', 'https://ifconfig.io/ip', 'https://ident.me/',
-                          'https://ifconfig.me/ip', 'https://icanhazip.com/']
+EXTERNAL_IP_QUERY_APIS = ['https://api.ipify.org', 'https://checkip.amazonaws.com', 'https://v4.ident.me/',
+                          'https://ifconfig.me/ip', 'https://ipv4.icanhazip.com/']
 CLOUDFLARE_ZONE_QUERY_API = 'https://api.cloudflare.com/client/v4/zones'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_QUERY_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records'  # GET
 CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API = 'https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{dns_record_id}'  # PATCH
