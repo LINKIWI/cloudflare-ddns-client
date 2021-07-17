@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import logging
 import json
 import os
 import re
@@ -34,10 +35,26 @@ def load_arguments():
     parser.add_argument('--configure', action='store_true', help='Interactively configure the account and domain for the DDNS updates.')
     parser.add_argument('--update-now', action='store_true', help='Update DNS records right now.')
     parser.add_argument('--debug', action='store_true', help='Print detailed debug output.')
+    parser.add_argument('--silent', action='store_true', help='Do not print any output.')
+    parser.add_argument('--silent-unchanged', action='store_true', help='Only print DNS changes / warning / errors.')
     return parser.parse_args()
 
 
 START_ARGS = load_arguments()
+CHANGE_LEVELV_NUM = 21
+logging.addLevelName(CHANGE_LEVELV_NUM, "CHANGE")
+log_level = logging.INFO
+if START_ARGS.debug:
+    log_level = logging.DEBUG
+if START_ARGS.silent:
+    log_level = 51  # CRITICAL is 50
+if START_ARGS.silent_unchanged:
+    log_level = CHANGE_LEVELV_NUM  # silent flag overwrites debug, silent unchanged overwrites silent
+logging.basicConfig(level=log_level,
+                    format="[%(asctime)s] [%(levelname)s] %(message)s")
+
+def log_change(msg):  # helper method to log on CHANGE level
+    logging.log(21, msg)
 
 
 def load_configuration():
@@ -61,11 +78,11 @@ def load_configuration():
             elif config['Cloudflare DDNS']['auth_type'] == 'key' and all([key in config['Cloudflare DDNS'] for key in ['email', 'api_key']]):
                 return config['Cloudflare DDNS']
         else:
-            print('Configuration file {config_file} is missing parameters. Run cloudflare-ddns --configure'
+            logging.critical('Configuration file {config_file} is missing parameters. Run cloudflare-ddns --configure'
                   ' to set the configuration.'.format(config_file=CONFIGURATION_FILE))
             return {}
     except KeyError:
-        print('Configuration file {config_file} not found or invalid! Did you run cloudflare-ddns --configure?'
+        logging.critical('Configuration file {config_file} not found or invalid! Did you run cloudflare-ddns --configure?'
               .format(config_file=CONFIGURATION_FILE))
         return {}
 
@@ -144,13 +161,12 @@ def get_external_ip():
     """
     for api in EXTERNAL_IP_QUERY_APIS:
         try:
-            if START_ARGS.debug:
-                print("Fetching {}".format(api))
+            logging.debug("Fetching {}".format(api))
             r = requests.get(api, timeout=6)
             return r.text.strip() # Fix bug with trailing whitespace, Fixes #39
         except requests.exceptions.RequestException:
-            print('Cannot fetch your external ip. {} not reachable.'.format(api))
-    print("All {} checked services did not return any external ip address. Please check your internet connection."
+            logging.warning('Cannot fetch your external ip. {} not reachable.'.format(api))
+    logging.error("All {} checked services did not return any external ip address. Please check your internet connection."
           .format(len(EXTERNAL_IP_QUERY_APIS)))
     return
 
@@ -192,11 +208,13 @@ def get_ipv6():
 def update_dns_record(auth, zone_id, record, ip_address):
     if record is None or ip_address is None:
         return
-    print('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'
-          .format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
+    logging.info('Checking if the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) has current IP: {ip_address}.'
+                 .format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
     if record['content'] == ip_address:
-        print('DNS record is already up-to-date; taking no action')
+        logging.info('DNS record is already up-to-date; taking no action')
         return
+    log_change('Updating the {type} record (ID {dns_record_id}) of (sub)domain {subdomain} (ID {zone_id}) to {ip_address}.'
+                   .format(type=record['type'], dns_record_id=record['id'], zone_id=zone_id, subdomain=record['name'], ip_address=ip_address))
     update_resp = requests.patch(
         CLOUDFLARE_ZONE_DNS_RECORDS_UPDATE_API.format(zone_id=zone_id, dns_record_id=record['id']),
         headers=dict(list(auth.items()) + [('Content-Type', 'application/json')]),
@@ -204,11 +222,11 @@ def update_dns_record(auth, zone_id, record, ip_address):
         timeout=6,
     )
     if update_resp.json().get('success'):
-        print('DNS record updated successfully!')
+        log_change('DNS record updated successfully!')
     else:
-        print('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\n\n'
-              'CloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'],
-                                                                              messages=update_resp.json()['messages']))
+        logging.error('DNS record failed to update.\nCloudFlare returned the following errors: {errors}.\n\n'
+                      'CloudFlare returned the following messages: {messages}'.format(errors=update_resp.json()['errors'],
+                                                                                      messages=update_resp.json()['messages']))
 
 
 def update_dns(subdomain, auth, ipv4_address, ipv6_address):
@@ -227,25 +245,22 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     # Find the zone ID corresponding to the domain
     cur_page = 1
     zone_names_to_ids = {}
-    print('Listing all zones.')
+    logging.info('Listing all zones.')
     while True:
         zone_resp = requests.get(CLOUDFLARE_ZONE_QUERY_API, headers=auth, timeout=6, params={'per_page': 50, 'page': cur_page})
         if zone_resp.status_code != 200:
             try:
                 errors = [x.get("message") for x in zone_resp.json()["errors"]]
-                print('===================================')
-                print('Request failed.')
-                print('Check your permissions and API key.')
-                if START_ARGS.debug:
-                    print('Status code: {}'.format(zone_resp.status_code))
-                    print('Text: "{}"'.format(zone_resp.text))
-                else:
-                    print('Use --debug for more details')
+                logging.critical('===================================')
+                logging.critical('Request failed.')
+                logging.critical('Check your permissions and API key.')
+                logging.debug('Status code: {}'.format(zone_resp.status_code))
+                logging.debug('Text: "{}"'.format(zone_resp.text))
                 for e in [x for x in errors if x]:
-                    print(e)  # this will print detailed info about missing permission etc.
+                    logging.critical(e)  # this will print detailed info about missing permission etc.
                     # e.g. "requires permission 'com.cloudflare.api.account.zone.list' to list zones"
             except KeyError:
-                print('Authentication error: make sure your email and API key are correct. '
+                logging.error('Authentication error: make sure your email and API key are correct. '
                       'To set new values, run cloudflare-ddns --configure')
             return
         data = zone_resp.json()
@@ -258,13 +273,13 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
             break
 
     if domain not in zone_names_to_ids:
-        print('The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'
+        logging.warning('The domain {domain} doesn\'t appear to be one of your CloudFlare domains. We only found {domain_list}.'
               .format(domain=domain, domain_list=map(str, zone_names_to_ids.keys())))
         return
     zone_id = zone_names_to_ids[domain]
 
     # Find DNS records
-    print('Finding all DNS records for domain "{}".'.format(subdomain))
+    logging.info('Finding all DNS records for domain "{}".'.format(subdomain))
     record_a = None
     record_aaaa = None
     r = requests.get(
@@ -276,19 +291,16 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
     if r.status_code != 200:
         try:
             errors = [x.get("message") for x in r.json()["errors"]]
-            print('===================================')
-            print('Request failed.')
-            print('Check your permissions and API key.')
-            if START_ARGS.debug:
-                print('Status code: {}'.format(r.status_code))
-                print('Text: "{}"'.format(r.text))
-            else:
-                print('Use --debug for more details')
+            logging.critical('===================================')
+            logging.critical('Request failed.')
+            logging.critical('Check your permissions and API key.')
+            logging.debug('Status code: {}'.format(r.status_code))
+            logging.debug('Text: "{}"'.format(r.text))
             for e in [x for x in errors if x]:
-                print(e)  # this will print detailed info about missing permission etc.
+                logging.critical(e)  # this will print detailed info about missing permission etc.
                 # e.g. "requires permission 'com.cloudflare.api.account.zone.list' to list zones"
         except KeyError:
-            print('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
+            logging.critical('Authentication error: make sure your email and API key are correct. To set new values, run cloudflare-ddns --configure')
         return
     for dns_record in r.json()['result']:
         if dns_record['type'] == 'A':
@@ -297,11 +309,8 @@ def update_dns(subdomain, auth, ipv4_address, ipv6_address):
             record_aaaa = dns_record
 
     if record_a is None and record_aaaa is None:
-        print('No A or AAAA records defined for domain "{}".'.format(subdomain))
-        if START_ARGS.debug:
-            print(r.json())
-        else:
-            print('Use --debug for more details')
+        logging.warning('No A or AAAA records defined for domain "{}".'.format(subdomain))
+        logging.debug(r.json())
         return
     
     # Update the record as necessary
@@ -329,10 +338,10 @@ def main():
                                'Try running cloudflare-ddns --configure'.format(config_file=CONFIGURATION_FILE))
         external_ip = get_external_ip()
         if external_ip:
-            print('Found external IPv4: "{}"'.format(str(external_ip)))
+            logging.info('Found external IPv4: "{}"'.format(str(external_ip)))
         ipv6 = get_ipv6()
         if ipv6:
-            print('Found external IPv6: "{}"'.format(str(ipv6)))
+            logging.info('Found external IPv6: "{}"'.format(str(ipv6)))
         if not external_ip and not ipv6:
             raise RuntimeError("Neither external IPv4 nor IPv6 found. Please check your internet connection.")
         try:
@@ -344,12 +353,12 @@ def main():
         if not domains:
             raise RuntimeError("No domains found to update.")
         
-        print("Handling domains: {}.".format(domains))
+        logging.info("Handling domains: {}.".format(domains))
         for domain in domains:
             update_dns(domain, auth, external_ip, ipv6)
     else:
-        print('No arguments passed; exiting.')
-        print('Try cloudflare-ddns --help.')
+        logging.critical('No arguments passed; exiting.')
+        logging.critical('Try cloudflare-ddns --help.')
 
 
 if __name__ == '__main__':
