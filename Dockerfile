@@ -1,4 +1,4 @@
-FROM python:alpine3.11
+FROM python:3.8-alpine
 RUN apk add iproute2
 RUN python3 -m pip install \
    argparse \
