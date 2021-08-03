@@ -62,7 +62,7 @@ Then add the entry
 ```
 
 ### Docker / Kubernetes
-A Dockerfile is included. This is mostly useful for cases where you want to run cloudflare-ddns-client as a cronjob in Kubernetes
+A Dockerfile is included. This is mostly useful for cases where you want to run cloudflare-ddns-client as a cronjob in Kubernetes.
 
 Configuration must be created before running in docker and provided either as a Kubernetes secret or mounted as a file into the container.
 
@@ -73,4 +73,4 @@ docker run -v /path/to/your/.cloudflare-ddns:/home/cloudflare-ddns-client/.cloud
 
 ### Contributions
 
-Contributions of all form are welcome :)
+Contributions of all forms are welcome :)
